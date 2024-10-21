@@ -1,4 +1,14 @@
 // TODO: add the appropriate head files here
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/time.h>
+#include <string.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <sys/shm.h>
+#include <sys/mman.h>
+#include <sys/wait.h>
+#include "lab2.h"
 
 /************************************************************\
  * get_arguments - returns the command line arguments not
@@ -22,17 +32,24 @@ char** get_arguments(int argc, char** argv){
     cmd_args[arg_length-1] = NULL;
     return cmd_args;
 }
-
+char *ipc_create(int);
+void ipc_close();
+double elapsed_time();
 
 int main(int argc, char** argv)
 {
     pid_t pid;
     int status;
-    char* command = NULL;
-    char** command_args = NULL;
-    char* ipc_ptr = NULL; // pointer to shared memory
+    char *command = NULL;
+    char **command_args = NULL;
+    char *ipcPtr = NULL; // pointer to shared memory
     struct timeval start_time;
     struct timeval current_time;
+    int fd;
+    const char *name = "lab2";
+    char *ptr;
+    const int SIZE = 16384;
+    struct timeval time;
 
     if (argc < 2){
         fprintf(stderr,"SYNOPSIS: %s <cmd> <cmd arguments>\n",argv[0]);
@@ -41,7 +58,7 @@ int main(int argc, char** argv)
     
     // TODO: call ipc_create to create shared memory region to which parent
     //       child have access.
-
+    ipcPtr = ipc_create(SIZE);
     /* fork a child process */
     pid = fork();
 
@@ -51,6 +68,10 @@ int main(int argc, char** argv)
     }
     else if (pid == 0) { /*child process */
         // TODO: use gettimeofday to log the start time
+        gettimeofday(&time, NULL);
+        memcpy(ipcPtr, &time, sizeof(time));
+        command_args = get_arguments(argc, argv);
+        execvp(command_args[0], command_args);
 
         // TODO: write the time to the IPC
         
@@ -61,6 +82,14 @@ int main(int argc, char** argv)
     else { /* parent process */
         // TODO: have parent wait and get status of child.
         //       Use the variable status to store status of child. 
+        wait(&status);
+        gettimeofday(&current_time, NULL);
+        fd = shm_open(name, O_RDONLY, 0666);
+        ptr = (char *)
+            mmap(0, SIZE, PROT_READ, MAP_SHARED, fd, 0);
+
+        start_time = *(struct timeval *)ptr;
+        ipc_close();
         
         // TODO: get the current time using gettimeofday
         
